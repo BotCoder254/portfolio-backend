@@ -158,12 +158,18 @@ app.post('/api/contact', async (req, res) => {
     }
 });
 
-
-app.use(cors());
-app.use(express.json());
-
 const GITHUB_USERNAME = 'BotCoder254';
 const GITHUB_API_BASE = 'https://api.github.com';
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+
+// Configure axios defaults for GitHub API
+const githubApi = axios.create({
+    baseURL: GITHUB_API_BASE,
+    headers: {
+        'Accept': 'application/vnd.github.v3+json',
+        'Authorization': `token ${GITHUB_TOKEN}`
+    }
+});
 
 // Cache for GitHub data
 let githubCache = {
@@ -187,12 +193,8 @@ app.get('/api/github/user', async (req, res) => {
             return res.json(githubCache.user);
         }
 
-        const response = await axios.get(`${GITHUB_API_BASE}/users/${GITHUB_USERNAME}`, {
-            headers: {
-                'Accept': 'application/vnd.github.v3+json'
-            }
-        });
-
+        const response = await githubApi.get(`/users/${GITHUB_USERNAME}`);
+        
         githubCache.user = response.data;
         githubCache.timestamp = Date.now();
         
@@ -215,19 +217,13 @@ app.get('/api/github/repos', async (req, res) => {
         let allRepos = [];
 
         while (true) {
-            const response = await axios.get(
-                `${GITHUB_API_BASE}/users/${GITHUB_USERNAME}/repos`,
-                {
-                    params: {
-                        per_page: perPage,
-                        page: page,
-                        sort: 'updated'
-                    },
-                    headers: {
-                        'Accept': 'application/vnd.github.v3+json'
-                    }
+            const response = await githubApi.get(`/users/${GITHUB_USERNAME}/repos`, {
+                params: {
+                    per_page: perPage,
+                    page: page,
+                    sort: 'updated'
                 }
-            );
+            });
 
             const repos = response.data;
             if (!repos || repos.length === 0) break;
@@ -251,8 +247,6 @@ app.get('/api/github/repos', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch GitHub repositories' });
     }
 });
-
-
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
